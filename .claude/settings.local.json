@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npx ng:*)",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "Bash(node:*)",
+      "mcp__plugin_playwright_playwright__browser_wait_for",
+      "Bash(ng serve:*)",
+      "mcp__plugin_playwright_playwright__browser_click",
+      "mcp__postgres__query",
+      "Bash(__NEW_LINE_77df1da7c6377ea2__ echo:*)",
+      "Bash(jar tf:*)",
+      "Bash(javap:*)",
+      "Bash(jar xf:*)",
+      "Bash(cmd:*)",
+      "Bash(./mvnw test:*)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "context7",
+    "playwright",
+    "postgres"
+  ]
+}

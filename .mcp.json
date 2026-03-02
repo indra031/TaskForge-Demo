@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@upstash/context7-mcp@latest"],
+      "description": "Resolves library IDs and fetches up-to-date documentation for Spring Boot, Angular, and other dependencies. Use 'resolve-library-id' to find the Context7-compatible library ID, then 'get-library-docs' to fetch focused documentation. Prevents hallucination of outdated APIs."
+    },
+    "playwright": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@anthropic/mcp-playwright@latest"],
+      "env": {
+        "PLAYWRIGHT_HEADLESS": "true"
+      },
+      "description": "Browser automation for E2E testing the Angular frontend. Can navigate pages, interact with elements, take screenshots, and validate UI behavior. Uses accessibility tree — no vision model required."
+    },
+    "postgres": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@modelcontextprotocol/server-postgres", "postgresql://taskforge:taskforge_dev@localhost:5432/taskforge_db"],
+      "description": "Direct PostgreSQL access for schema inspection, query execution, and data debugging. Connects to the TaskForge Docker PostgreSQL instance."
+    }
+  }
+}
