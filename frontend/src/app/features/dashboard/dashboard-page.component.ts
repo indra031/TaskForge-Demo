@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatIconModule } from '@angular/material/icon';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { DashboardStore } from './store/dashboard.store';
 import { StatusSummaryCardsComponent } from './components/status-summary-cards.component';
 import { RecentTasksListComponent } from './components/recent-tasks-list.component';
@@ -108,9 +109,24 @@ import { TaskSummary } from '@shared/models/task.model';
 export class DashboardPageComponent implements OnInit {
   protected readonly store = inject(DashboardStore);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly snackBar = inject(MatSnackBar);
 
   ngOnInit(): void {
     this.store.loadDashboard();
+
+    if (this.route.snapshot.queryParamMap.get('registered') === 'true') {
+      this.snackBar.open(
+        'Welcome to TaskForge! Your account is ready.',
+        'Close',
+        { duration: 5000 }
+      );
+      this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: {},
+        replaceUrl: true,
+      });
+    }
   }
 
   onTaskClicked(task: TaskSummary): void {

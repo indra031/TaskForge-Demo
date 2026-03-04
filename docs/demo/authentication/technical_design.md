@@ -511,9 +511,16 @@ Strategy A minimizes context-switching and produces a testable backend before to
 
 ### Phase 3 — Session Management & Hardening
 
-**Scope:** Idle timeout enforcement, refresh token rotation, token cleanup, remaining security headers, edge cases.
+**Scope:** Backend security hardening (JWT filter, SecurityConfig rewrite), idle timeout enforcement, refresh token rotation, token cleanup, remaining security headers, edge cases.
 
 **What to Build:**
+
+**Backend Security Hardening**
+- `JwtAuthenticationFilter`: New `OncePerRequestFilter` in `security/` package. Extracts `Authorization: Bearer <token>` header, validates via `JwtService.parseAccessToken()`, checks denylist via `TokenDenylistRepository.existsByTokenJti()`, populates `SecurityContext` with user ID. Skips auth endpoints (`/api/v1/auth/register`, `/api/v1/auth/login`, `/api/v1/auth/refresh`). On missing/invalid/denylisted token: do not set context (Spring Security handles 401).
+- `JwtAuthenticationToken`: New `AbstractAuthenticationToken` in `security/` package. Holds `userId` (UUID) as principal. Used by the filter to set `SecurityContext`.
+- `SecurityConfig` rewrite: Replace `anyRequest().permitAll()` with: public endpoints (`/api/v1/auth/register`, `/api/v1/auth/login`, `/api/v1/auth/refresh`, `/swagger-ui/**`, `/api-docs/**`) explicitly permitted; all others require authentication. Insert `JwtAuthenticationFilter` before `UsernamePasswordAuthenticationFilter`. Add `Authorization` to CORS allowed/exposed headers.
+- Fix `AuthController.me()`: Change from `@RequestParam UUID userId` to extracting userId from `SecurityContext` (populated by the JWT filter). Remove the query param — this endpoint is authenticated.
+- Update `AuditorAware` bean in `JpaConfig`: Read authenticated user UUID from `SecurityContext`; return `"system"` for anonymous requests.
 
 **Idle Timeout (30-min)**
 - The refresh endpoint already checks `lastUsedAt`. Frontend must proactively detect idle timeout.
@@ -538,6 +545,11 @@ Strategy A minimizes context-switching and produces a testable backend before to
 **Modified/New Files**
 | Action | Path |
 |--------|------|
+| New | `backend: security/JwtAuthenticationFilter.java` — JWT validation + SecurityContext population |
+| New | `backend: security/JwtAuthenticationToken.java` — Authentication token holding userId |
+| Modified | `backend: config/SecurityConfig.java` — rewrite filter chain, add JWT filter, security headers, CORS update |
+| Modified | `backend: controller/AuthController.java` — fix `/me` endpoint to use SecurityContext instead of query param |
+| Modified | `backend: config/JpaConfig.java` — `AuditorAware` bean reads user UUID from SecurityContext |
 | New | `backend: config/ScheduledTasksConfig.java` or method in existing service |
 | Modified | `backend: service/AuthService.java` — refresh token rotation, reuse detection |
 | Modified | `frontend: core/interceptors/auth.interceptor.ts` — request queuing during refresh |
@@ -545,6 +557,12 @@ Strategy A minimizes context-switching and produces a testable backend before to
 | Modified | `frontend: features/auth/store/auth.store.ts` — idle timeout integration |
 
 **Review Checklist**
+- [ ] `GET /api/v1/tasks` without token returns 401
+- [ ] `GET /api/v1/tasks` with valid Bearer token returns 200
+- [ ] Swagger UI accessible at `/swagger-ui.html` without authentication
+- [ ] `GET /api/v1/auth/me` returns user info from JWT (no query param)
+- [ ] Denylisted token (after logout) returns 401 on subsequent requests
+- [ ] `created_by` field on new records contains the authenticated user's UUID
 - [ ] Idle for 30+ min → session expires, redirected to login with message
 - [ ] Refresh token rotation: each refresh returns a new refresh token
 - [ ] Old refresh token cannot be reused (returns 401)
@@ -557,6 +575,14 @@ Strategy A minimizes context-switching and produces a testable backend before to
 **Test Scenarios**
 | Scenario | Type | What to Assert |
 |----------|------|----------------|
+| JWT filter — valid token | Unit (backend) | SecurityContext populated with user ID |
+| JWT filter — denylisted token | Unit (backend) | 401 returned |
+| JWT filter — expired token | Unit (backend) | 401 returned |
+| JWT filter — no token on protected endpoint | Unit (backend) | 401 returned |
+| JWT filter — no token on public endpoint | Unit (backend) | Request passes through |
+| `/me` endpoint returns user from SecurityContext | Unit (backend) | User info returned without query param |
+| AuditorAware returns user UUID when authenticated | Unit (backend) | `created_by` populated with UUID |
+| AuditorAware returns "system" when anonymous | Unit (backend) | `created_by` populated with "system" |
 | Idle timeout triggers logout | Unit (frontend) | State cleared after 30 min idle |
 | Refresh token rotation | Unit (backend) | Old token invalidated, new token issued |
 | Refresh token reuse detection | Unit (backend) | All user tokens revoked |
