@@ -34,6 +34,16 @@ springdoc:
 server:
   port: 8080
 
+app:
+  jwt:
+    secret: a-256-bit-base64-encoded-secret-for-dev-only-change-in-prod
+    access-token-expiry: 15m
+    refresh-token-expiry: 7d
+    idle-timeout: 30m
+  auth:
+    max-failed-attempts: 5
+    lockout-duration: 15m
+
 logging:
   level:
     com.taskforge: DEBUG

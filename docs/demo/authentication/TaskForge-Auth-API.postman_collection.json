@@ -1,0 +1,1007 @@
+{
+	"info": {
+		"_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+		"name": "TaskForge — API Collection",
+		"description": "Full API collection for TaskForge after Phase 1 authentication.\n\nRun the Auth folder first (Register or Login) to populate token/userId variables, then use the Tasks folder.\n\nVariables are auto-chained between requests via test scripts.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "accessToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "refreshToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "userId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "taskId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "projectId",
+			"value": "a1b2c3d4-0001-0001-0001-000000000001",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Auth",
+			"description": "Authentication endpoints — register, login, refresh, logout, me",
+			"item": [
+				{
+					"name": "1. Register",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('accessToken', json.accessToken);",
+									"    pm.collectionVariables.set('refreshToken', json.refreshToken);",
+									"    pm.collectionVariables.set('userId', json.user.id);",
+									"",
+									"    pm.test('Status is 201 Created', function () {",
+									"        pm.response.to.have.status(201);",
+									"    });",
+									"    pm.test('Response contains tokens', function () {",
+									"        pm.expect(json.accessToken).to.be.a('string').and.not.empty;",
+									"        pm.expect(json.refreshToken).to.be.a('string').and.not.empty;",
+									"    });",
+									"    pm.test('Response contains user', function () {",
+									"        pm.expect(json.user.id).to.be.a('string');",
+									"        pm.expect(json.user.email).to.eql('alice@example.com');",
+									"    });",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"alice@example.com\",\n    \"password\": \"Secret123\",\n    \"confirmPassword\": \"Secret123\",\n    \"fullName\": \"Alice Johnson\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/register",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "register"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "2. Register — Duplicate Email (409)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status is 409 Conflict', function () {",
+									"    pm.response.to.have.status(409);",
+									"});",
+									"pm.test('Problem detail returned', function () {",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.detail).to.eql('Unable to register with this email');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"alice@example.com\",\n    \"password\": \"Secret123\",\n    \"confirmPassword\": \"Secret123\",\n    \"fullName\": \"Alice Again\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/register",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "register"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "3. Register — Validation Error (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status is 400 Bad Request', function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"pm.test('Validation errors returned', function () {",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.title).to.eql('Validation Failed');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"not-an-email\",\n    \"password\": \"weak\",\n    \"confirmPassword\": \"nomatch\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/register",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "register"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "4. Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('accessToken', json.accessToken);",
+									"    pm.collectionVariables.set('refreshToken', json.refreshToken);",
+									"    pm.collectionVariables.set('userId', json.user.id);",
+									"",
+									"    pm.test('Status is 200 OK', function () {",
+									"        pm.response.to.have.status(200);",
+									"    });",
+									"    pm.test('Response contains tokens', function () {",
+									"        pm.expect(json.accessToken).to.be.a('string').and.not.empty;",
+									"        pm.expect(json.refreshToken).to.be.a('string').and.not.empty;",
+									"    });",
+									"    pm.test('Response contains user', function () {",
+									"        pm.expect(json.user.email).to.eql('alice@example.com');",
+									"        pm.expect(json.user.fullName).to.eql('Alice Johnson');",
+									"    });",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"alice@example.com\",\n    \"password\": \"Secret123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "login"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "5. Login — Wrong Password (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status is 401 Unauthorized', function () {",
+									"    pm.response.to.have.status(401);",
+									"});",
+									"pm.test('Error message returned', function () {",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.detail).to.eql('Invalid email or password');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"alice@example.com\",\n    \"password\": \"WrongPassword1\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "login"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "6. Login — Unknown User (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status is 401 Unauthorized', function () {",
+									"    pm.response.to.have.status(401);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"nobody@example.com\",\n    \"password\": \"Secret123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "login"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "7. Refresh Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('accessToken', json.accessToken);",
+									"",
+									"    pm.test('Status is 200 OK', function () {",
+									"        pm.response.to.have.status(200);",
+									"    });",
+									"    pm.test('New access token returned', function () {",
+									"        pm.expect(json.accessToken).to.be.a('string').and.not.empty;",
+									"    });",
+									"    pm.test('Same refresh token returned', function () {",
+									"        pm.expect(json.refreshToken).to.eql(pm.collectionVariables.get('refreshToken'));",
+									"    });",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"refreshToken\": \"{{refreshToken}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/refresh",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "refresh"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "8. Refresh — Invalid Token (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status is 401 Unauthorized', function () {",
+									"    pm.response.to.have.status(401);",
+									"});",
+									"pm.test('Error message returned', function () {",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.detail).to.eql('Invalid or expired token');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"refreshToken\": \"invalid-token-value\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/refresh",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "refresh"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "9. Get Current User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    pm.test('Status is 200 OK', function () {",
+									"        pm.response.to.have.status(200);",
+									"    });",
+									"    pm.test('User details returned', function () {",
+									"        var json = pm.response.json();",
+									"        pm.expect(json.id).to.eql(pm.collectionVariables.get('userId'));",
+									"        pm.expect(json.email).to.eql('alice@example.com');",
+									"        pm.expect(json.fullName).to.eql('Alice Johnson');",
+									"    });",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/me?userId={{userId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "me"],
+							"query": [
+								{
+									"key": "userId",
+									"value": "{{userId}}"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "10. Get Current User — Not Found (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status is 401 Unauthorized', function () {",
+									"    pm.response.to.have.status(401);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/me?userId=00000000-0000-0000-0000-000000000000",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "me"],
+							"query": [
+								{
+									"key": "userId",
+									"value": "00000000-0000-0000-0000-000000000000"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "11. Logout",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status is 204 No Content', function () {",
+									"    pm.response.to.have.status(204);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"accessToken\": \"{{accessToken}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/logout",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "logout"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "12. Refresh After Logout (401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status is 401 — refresh token invalidated', function () {",
+									"    pm.response.to.have.status(401);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"refreshToken\": \"{{refreshToken}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/refresh",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "refresh"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Tasks",
+			"description": "Task management endpoints — CRUD, stats, assign",
+			"item": [
+				{
+					"name": "1. List Tasks",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status is 200 OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Response is a page', function () {",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.content).to.be.an('array');",
+									"    pm.expect(json.totalElements).to.be.a('number');",
+									"    pm.expect(json.totalPages).to.be.a('number');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/tasks?page=0&size=10",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "tasks"],
+							"query": [
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "10"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "2. List Tasks — Filter by Status",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status is 200 OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('All tasks have TODO status', function () {",
+									"    var json = pm.response.json();",
+									"    json.content.forEach(function (task) {",
+									"        pm.expect(task.status).to.eql('TODO');",
+									"    });",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/tasks?status=TODO&page=0&size=10",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "tasks"],
+							"query": [
+								{
+									"key": "status",
+									"value": "TODO"
+								},
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "10"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "3. List Tasks — Filter by Assignee",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status is 200 OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/tasks?assigneeId={{userId}}&page=0&size=10",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "tasks"],
+							"query": [
+								{
+									"key": "assigneeId",
+									"value": "{{userId}}"
+								},
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "10"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "4. Get Task Stats",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status is 200 OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Response contains stats fields', function () {",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.totalTasks).to.be.a('number');",
+									"    pm.expect(json.statusCounts).to.be.an('object');",
+									"    pm.expect(json.priorityCounts).to.be.an('object');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/tasks/stats",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "tasks", "stats"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "5. Create Task",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('taskId', json.id);",
+									"",
+									"    pm.test('Status is 201 Created', function () {",
+									"        pm.response.to.have.status(201);",
+									"    });",
+									"    pm.test('Location header present', function () {",
+									"        pm.expect(pm.response.headers.get('Location')).to.include('/api/v1/tasks/');",
+									"    });",
+									"    pm.test('Task fields match', function () {",
+									"        pm.expect(json.title).to.eql('Test task from Postman');",
+									"        pm.expect(json.priority).to.eql('HIGH');",
+									"        pm.expect(json.status).to.eql('TODO');",
+									"    });",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Test task from Postman\",\n    \"description\": \"This task was created via the Postman collection\",\n    \"projectId\": \"{{projectId}}\",\n    \"priority\": \"HIGH\",\n    \"dueDate\": \"2026-04-01\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/tasks",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "tasks"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "6. Create Task — Validation Error (400)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status is 400 Bad Request', function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"pm.test('Validation errors returned', function () {",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.title).to.eql('Validation Failed');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"\",\n    \"projectId\": null\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/tasks",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "tasks"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "7. Get Task by ID",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status is 200 OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Task details returned', function () {",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.id).to.eql(pm.collectionVariables.get('taskId'));",
+									"    pm.expect(json.title).to.eql('Test task from Postman');",
+									"    pm.expect(json.projectId).to.be.a('string');",
+									"    pm.expect(json.createdAt).to.be.a('string');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/tasks/{{taskId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "tasks", "{{taskId}}"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "8. Get Task — Not Found (404)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status is 404 Not Found', function () {",
+									"    pm.response.to.have.status(404);",
+									"});",
+									"pm.test('Problem detail returned', function () {",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.detail).to.include('Task not found');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/tasks/00000000-0000-0000-0000-000000000000",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "tasks", "00000000-0000-0000-0000-000000000000"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "9. Update Task",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status is 200 OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Fields updated', function () {",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.title).to.eql('Updated task title');",
+									"    pm.expect(json.status).to.eql('IN_PROGRESS');",
+									"    pm.expect(json.priority).to.eql('CRITICAL');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Updated task title\",\n    \"status\": \"IN_PROGRESS\",\n    \"priority\": \"CRITICAL\",\n    \"description\": \"Updated via Postman\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/tasks/{{taskId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "tasks", "{{taskId}}"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "10. Assign Task to User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status is 200 OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Assignee set', function () {",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.assigneeId).to.eql(pm.collectionVariables.get('userId'));",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "\"{{userId}}\""
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/tasks/{{taskId}}/assign",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "tasks", "{{taskId}}", "assign"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "11. Get Task by ID (seed data)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status is 200 OK', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Seed task returned', function () {",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.title).to.eql('Implement user authentication');",
+									"    pm.expect(json.status).to.eql('IN_PROGRESS');",
+									"    pm.expect(json.projectName).to.eql('TaskForge Platform');",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/tasks/b2c3d4e5-0001-0001-0001-000000000001",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "tasks", "b2c3d4e5-0001-0001-0001-000000000001"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "12. Delete Task",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status is 204 No Content', function () {",
+									"    pm.response.to.have.status(204);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/tasks/{{taskId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "tasks", "{{taskId}}"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "13. Get Deleted Task (404)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status is 404 — task was deleted', function () {",
+									"    pm.response.to.have.status(404);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/tasks/{{taskId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "tasks", "{{taskId}}"]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
